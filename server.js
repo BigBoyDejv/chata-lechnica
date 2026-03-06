@@ -4,7 +4,7 @@ const { Pool }   = require('pg');
 const cors       = require('cors');
 const path       = require('path');
 const nodemailer = require('nodemailer');
-const bcrypt     = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const crypto     = require('crypto');
 
 const app  = express();
