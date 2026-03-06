@@ -4,6 +4,8 @@ const { Pool }   = require('pg');
 const cors       = require('cors');
 const path       = require('path');
 const nodemailer = require('nodemailer');
+const bcrypt     = require('bcrypt');
+const crypto     = require('crypto');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -312,11 +314,108 @@ app.get('/api/galeria', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-//  ADMIN API  (jednoduché – bez auth zatiaľ)
+//  ADMIN AUTENTIFIKÁCIA
+// ════════════════════════════════════════════════════════════
+
+// ── Middleware – overenie tokenu ─────────────────────────────
+async function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (!token) return res.status(401).json({ chyba: 'Nie si prihlásený.' });
+  try {
+    const r = await q(
+      `SELECT a.id, a.username, a.meno FROM admin_session s
+       JOIN admin a ON a.id = s.admin_id
+       WHERE s.token = $1 AND s.expiruje > NOW() AND a.aktivny = TRUE`,
+      [token]
+    );
+    if (!r.rows.length) return res.status(401).json({ chyba: 'Neplatná session. Prihlás sa znova.' });
+    req.admin = r.rows[0];
+    next();
+  } catch(e) {
+    res.status(500).json({ chyba: 'Chyba overenia.' });
+  }
+}
+
+// ── SETUP – vytvorenie prvého admina (len ak žiadny neexistuje) ──
+app.post('/api/admin/setup', async (req, res) => {
+  try {
+    const existing = await q(`SELECT COUNT(*) as cnt FROM admin`);
+    if (parseInt(existing.rows[0].cnt) > 0)
+      return res.status(403).json({ chyba: 'Admin už existuje.' });
+    const { username, password, meno } = req.body;
+    if (!username || !password) return res.status(400).json({ chyba: 'Chýba username/password.' });
+    const hash = await bcrypt.hash(password, 10);
+    await q(`INSERT INTO admin (username, password, meno) VALUES ($1, $2, $3)`,
+      [username, hash, meno || 'Správca']);
+    res.json({ uspech: true, sprava: 'Admin vytvorený. Môžeš sa prihlásiť.' });
+  } catch(e) { res.status(500).json({ chyba: 'Chyba setupu.' }); }
+});
+
+// ── PRIHLÁSENIE ──────────────────────────────────────────────
+app.post('/api/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ chyba: 'Zadaj username a heslo.' });
+  try {
+    const r = await q(
+      `SELECT id, username, password, meno FROM admin WHERE username=$1 AND aktivny=TRUE`,
+      [username]
+    );
+    if (!r.rows.length)
+      return res.status(401).json({ chyba: 'Nesprávne meno alebo heslo.' });
+
+    const admin = r.rows[0];
+    const ok = await bcrypt.compare(password, admin.password);
+    if (!ok)
+      return res.status(401).json({ chyba: 'Nesprávne meno alebo heslo.' });
+
+    // Vygeneruj token
+    const token = crypto.randomBytes(32).toString('hex');
+    await q(
+      `INSERT INTO admin_session (token, admin_id, ip_adresa, user_agent)
+       VALUES ($1, $2, $3::inet, $4)`,
+      [token, admin.id, req.ip, req.headers['user-agent'] || null]
+    );
+    await q(`UPDATE admin SET posledny_login=NOW() WHERE id=$1`, [admin.id]);
+
+    res.json({ uspech: true, token, meno: admin.meno, username: admin.username });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ chyba: 'Chyba prihlásenia.' });
+  }
+});
+
+// ── ODHLÁSENIE ───────────────────────────────────────────────
+app.post('/api/admin/logout', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token) await q(`DELETE FROM admin_session WHERE token=$1`, [token]).catch(()=>{});
+  res.json({ uspech: true });
+});
+
+// ── ZMENA HESLA ──────────────────────────────────────────────
+app.post('/api/admin/zmena-hesla', requireAdmin, async (req, res) => {
+  const { stare_heslo, nove_heslo } = req.body;
+  if (!stare_heslo || !nove_heslo || nove_heslo.length < 6)
+    return res.status(400).json({ chyba: 'Heslo musí mať aspoň 6 znakov.' });
+  try {
+    const r = await q(`SELECT password FROM admin WHERE id=$1`, [req.admin.id]);
+    const ok = await bcrypt.compare(stare_heslo, r.rows[0].password);
+    if (!ok) return res.status(401).json({ chyba: 'Staré heslo je nesprávne.' });
+    const hash = await bcrypt.hash(nove_heslo, 10);
+    await q(`UPDATE admin SET password=$1 WHERE id=$2`, [hash, req.admin.id]);
+    // Zmaž všetky ostatné sessiony
+    await q(`DELETE FROM admin_session WHERE admin_id=$1 AND token!=$2`,
+      [req.admin.id, req.headers['x-admin-token']]);
+    res.json({ uspech: true, sprava: 'Heslo zmenené.' });
+  } catch(e) { res.status(500).json({ chyba: 'Chyba.' }); }
+});
+
+// ════════════════════════════════════════════════════════════
+//  ADMIN API  (chránené – requireAdmin middleware)
 // ════════════════════════════════════════════════════════════
 
 // ── Štatistiky ──────────────────────────────────────────────
-app.get('/api/admin/statistiky', async (req, res) => {
+app.get('/api/admin/statistiky', requireAdmin, async (req, res) => {
   try {
     const r = await q(`SELECT * FROM v_statistiky`);
     const obsadenost = await q(`
@@ -330,7 +429,7 @@ app.get('/api/admin/statistiky', async (req, res) => {
 });
 
 // ── Všetky rezervácie ───────────────────────────────────────
-app.get('/api/admin/rezervacie', async (req, res) => {
+app.get('/api/admin/rezervacie', requireAdmin, async (req, res) => {
   try {
     const r = await q(`
       SELECT * FROM v_rezervacie
@@ -341,7 +440,7 @@ app.get('/api/admin/rezervacie', async (req, res) => {
 });
 
 // ── Zmena statusu rezervácie ────────────────────────────────
-app.patch('/api/admin/rezervacie/:id', async (req, res) => {
+app.patch('/api/admin/rezervacie/:id', requireAdmin, async (req, res) => {
   const { status } = req.body;
   const validStatuses = ['cakajuca','potvrdena','zaplatena','zrusena','dokoncena'];
   if (!validStatuses.includes(status))
@@ -354,7 +453,7 @@ app.patch('/api/admin/rezervacie/:id', async (req, res) => {
 });
 
 // ── Neschválené recenzie ─────────────────────────────────────
-app.get('/api/admin/recenzie-cakajuce', async (req, res) => {
+app.get('/api/admin/recenzie-cakajuce', requireAdmin, async (req, res) => {
   try {
     const r = await q(`SELECT * FROM recenzia WHERE schvalena=FALSE ORDER BY vytvorena DESC`);
     res.json({ recenzie: r.rows });
@@ -362,7 +461,7 @@ app.get('/api/admin/recenzie-cakajuce', async (req, res) => {
 });
 
 // ── Schválenie recenzie ──────────────────────────────────────
-app.patch('/api/admin/recenzie/:id', async (req, res) => {
+app.patch('/api/admin/recenzie/:id', requireAdmin, async (req, res) => {
   const { schvalena } = req.body;
   try {
     await q(`UPDATE recenzia SET schvalena=$1 WHERE id=$2`, [schvalena, req.params.id]);
@@ -371,7 +470,7 @@ app.patch('/api/admin/recenzie/:id', async (req, res) => {
 });
 
 // ── Správy ───────────────────────────────────────────────────
-app.get('/api/admin/spravy', async (req, res) => {
+app.get('/api/admin/spravy', requireAdmin, async (req, res) => {
   try {
     const r = await q(`SELECT * FROM sprava ORDER BY vytvorena DESC LIMIT 50`);
     res.json({ spravy: r.rows });
@@ -379,7 +478,7 @@ app.get('/api/admin/spravy', async (req, res) => {
 });
 
 // ── Blokovanie termínov ──────────────────────────────────────
-app.post('/api/admin/blokovat', async (req, res) => {
+app.post('/api/admin/blokovat', requireAdmin, async (req, res) => {
   const { datum_od, datum_do, dovod } = req.body;
   if (!datum_od || !datum_do) return res.status(400).json({ chyba: 'Chýba dátum.' });
   try {
@@ -389,14 +488,14 @@ app.post('/api/admin/blokovat', async (req, res) => {
   } catch (e) { res.status(500).json({ chyba: 'Chyba blokovania.' }); }
 });
 
-app.get('/api/admin/bloky', async (req, res) => {
+app.get('/api/admin/bloky', requireAdmin, async (req, res) => {
   try {
     const r = await q(`SELECT * FROM blokovane_terminy ORDER BY datum_od`);
     res.json({ bloky: r.rows });
   } catch (e) { res.status(500).json({ chyba: 'Chyba.' }); }
 });
 
-app.delete('/api/admin/bloky/:id', async (req, res) => {
+app.delete('/api/admin/bloky/:id', requireAdmin, async (req, res) => {
   try {
     await q(`DELETE FROM blokovane_terminy WHERE id=$1`, [req.params.id]);
     res.json({ uspech: true });

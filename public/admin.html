@@ -145,9 +145,136 @@
       .main { margin-left:0; margin-top:60px; padding:16px; }
       .form-row { grid-template-columns:1fr; }
     }
+
+    /* ─── LOGIN SCREEN ─── */
+    .login-screen {
+      position:fixed; inset:0; background:var(--green);
+      display:flex; align-items:center; justify-content:center;
+      z-index:9999;
+    }
+    .login-screen.hidden { display:none; }
+    .login-box {
+      background:white; border-radius:16px; padding:40px;
+      width:100%; max-width:380px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    }
+    .login-logo {
+      text-align:center; margin-bottom:28px;
+    }
+    .login-logo h1 {
+      font-family:'Playfair Display',serif; color:var(--green);
+      font-size:1.6rem; margin-bottom:4px;
+    }
+    .login-logo p { color:var(--muted); font-size:0.85rem; }
+    .login-box .form-group { margin-bottom:16px; }
+    .login-box .form-group label {
+      display:block; font-size:0.75rem; font-weight:600;
+      color:var(--muted); text-transform:uppercase;
+      letter-spacing:0.08em; margin-bottom:5px;
+    }
+    .login-box .form-group input {
+      width:100%; padding:11px 14px; border:1.5px solid #e0e0e0;
+      border-radius:8px; font-size:0.95rem;
+      font-family:'DM Sans',sans-serif; outline:none;
+      transition:border-color 0.2s;
+    }
+    .login-box .form-group input:focus { border-color:var(--green-light); }
+    .login-btn {
+      width:100%; padding:12px; background:var(--green);
+      color:white; border:none; border-radius:8px;
+      font-size:0.95rem; font-weight:600; cursor:pointer;
+      font-family:'DM Sans',sans-serif; transition:background 0.2s;
+      margin-top:4px;
+    }
+    .login-btn:hover { background:var(--green-mid); }
+    .login-error {
+      background:#fff0f0; color:var(--red); border-radius:7px;
+      padding:10px 14px; font-size:0.85rem; margin-bottom:14px;
+      display:none;
+    }
+    /* ─── ADMIN HEADER ─── */
+    .admin-header {
+      position:fixed; top:0; left:220px; right:0; height:52px;
+      background:white; border-bottom:1px solid #eee;
+      display:flex; align-items:center; justify-content:flex-end;
+      padding:0 24px; gap:16px; z-index:50;
+    }
+    .admin-user { font-size:0.85rem; color:var(--muted); }
+    .admin-user strong { color:var(--green); }
+    .btn-logout {
+      background:transparent; border:1px solid #ddd; color:var(--muted);
+      padding:6px 14px; border-radius:6px; font-size:0.82rem;
+      cursor:pointer; font-family:'DM Sans',sans-serif;
+      transition:all 0.2s;
+    }
+    .btn-logout:hover { background:#fff0f0; color:var(--red); border-color:var(--red); }
+    .main { padding-top:80px; }
+    /* ─── ZMENA HESLA ─── */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.5);
+      display:flex; align-items:center; justify-content:center;
+      z-index:8000; display:none;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal-box {
+      background:white; border-radius:12px; padding:32px;
+      width:100%; max-width:360px;
+    }
+    .modal-box h3 { color:var(--green); margin-bottom:20px; }
   </style>
 </head>
 <body>
+
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <h1>🏠 Chata Lechnica</h1>
+      <p>Admin Panel — prihlásenie</p>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="form-group">
+      <label>Používateľské meno</label>
+      <input type="text" id="loginUsername" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Heslo</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Prihlásiť sa</button>
+  </div>
+</div>
+
+<!-- ADMIN HEADER -->
+<div class="admin-header" id="adminHeader" style="display:none">
+  <span class="admin-user">Prihlásený: <strong id="adminMeno"></strong></span>
+  <button class="btn-logout" onclick="showZmenaHesla()">🔑 Zmeniť heslo</button>
+  <button class="btn-logout" onclick="doLogout()">Odhlásiť sa</button>
+</div>
+
+<!-- ZMENA HESLA MODAL -->
+<div class="modal-overlay" id="modalHeslo">
+  <div class="modal-box">
+    <h3>🔑 Zmeniť heslo</h3>
+    <div class="form-group">
+      <label>Staré heslo</label>
+      <input type="password" id="stareHeslo" placeholder="••••••••">
+    </div>
+    <div class="form-group">
+      <label>Nové heslo</label>
+      <input type="password" id="noveHeslo" placeholder="min. 6 znakov">
+    </div>
+    <div class="form-group">
+      <label>Potvrď nové heslo</label>
+      <input type="password" id="noveHeslo2" placeholder="••••••••">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-green" onclick="doZmenaHesla()">Zmeniť</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('modalHeslo').classList.remove('open')">Zrušiť</button>
+    </div>
+  </div>
+</div>
 
 <div class="sidebar">
   <div class="sidebar-logo">
@@ -254,6 +381,100 @@
 <script>
 const API = '';
 
+// ── AUTH ─────────────────────────────────────────────────────
+let adminToken = localStorage.getItem('adminToken') || null;
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'x-admin-token': adminToken };
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!username || !password) {
+    errEl.textContent = 'Zadaj meno aj heslo.';
+    errEl.style.display = 'block';
+    return;
+  }
+  btn.textContent = 'Prihlasujem...'; btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    if (d.uspech) {
+      adminToken = d.token;
+      localStorage.setItem('adminToken', adminToken);
+      showApp(d.meno);
+    } else {
+      errEl.textContent = d.chyba || 'Nesprávne údaje.';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Chyba spojenia so serverom.';
+    errEl.style.display = 'block';
+  }
+  btn.textContent = 'Prihlásiť sa'; btn.disabled = false;
+}
+
+function showApp(meno) {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('adminHeader').style.display = 'flex';
+  document.getElementById('adminMeno').textContent = meno || 'Admin';
+  loadDashboard();
+  loadBadges();
+}
+
+async function doLogout() {
+  if (adminToken) {
+    await fetch('/api/admin/logout', {
+      method: 'POST', headers: authHeaders()
+    }).catch(()=>{});
+  }
+  localStorage.removeItem('adminToken');
+  adminToken = null;
+  location.reload();
+}
+
+function showZmenaHesla() {
+  document.getElementById('stareHeslo').value = '';
+  document.getElementById('noveHeslo').value = '';
+  document.getElementById('noveHeslo2').value = '';
+  document.getElementById('modalHeslo').classList.add('open');
+}
+
+async function doZmenaHesla() {
+  const stare = document.getElementById('stareHeslo').value;
+  const nove  = document.getElementById('noveHeslo').value;
+  const nove2 = document.getElementById('noveHeslo2').value;
+  if (!stare || !nove) return showToast('❌ Vyplň všetky polia', false);
+  if (nove !== nove2)  return showToast('❌ Nové heslá sa nezhodujú', false);
+  if (nove.length < 6) return showToast('❌ Heslo musí mať aspoň 6 znakov', false);
+  try {
+    const r = await fetch('/api/admin/zmena-hesla', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ stare_heslo: stare, nove_heslo: nove })
+    });
+    const d = await r.json();
+    if (d.uspech) {
+      showToast('✅ Heslo zmenené!');
+      document.getElementById('modalHeslo').classList.remove('open');
+    } else showToast('❌ ' + d.chyba, false);
+  } catch(e) { showToast('❌ Chyba siete', false); }
+}
+
+// Enter na login formulári
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden'))
+    doLogin();
+});
+
+// ── TOAST ────────────────────────────────────────────────────
 function showToast(msg, ok = true) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -262,6 +483,7 @@ function showToast(msg, ok = true) {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 
+// ── NAVIGATION ───────────────────────────────────────────────
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -276,14 +498,29 @@ function statusBadge(s) {
   return `<span class="badge badge-${s}">${labels[s]||s}</span>`;
 }
 
+// ── API HELPER ───────────────────────────────────────────────
+async function adminFetch(url, options = {}) {
+  const r = await fetch(url, {
+    ...options,
+    headers: { ...authHeaders(), ...(options.headers||{}) }
+  });
+  if (r.status === 401) {
+    localStorage.removeItem('adminToken');
+    location.reload();
+    return null;
+  }
+  return r.json();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
 async function loadDashboard() {
   try {
     const [stat, rez] = await Promise.all([
-      fetch('/api/admin/statistiky').then(r=>r.json()),
-      fetch('/api/admin/rezervacie').then(r=>r.json())
+      adminFetch('/api/admin/statistiky'),
+      adminFetch('/api/admin/rezervacie')
     ]);
+    if (!stat || !rez) return;
 
-    // Stats cards
     const pct = stat.celkom_dni > 0
       ? Math.round((stat.obsadene_dni / stat.celkom_dni) * 100) : 0;
 
@@ -302,7 +539,6 @@ async function loadDashboard() {
         <p class="value">${pct}%</p>
         <div class="obsadenost-bar"><div class="obsadenost-fill" style="width:${pct}%"></div></div></div>`;
 
-    // Najbližšie rezervácie
     const nearest = (rez.rezervacie||[]).slice(0, 5);
     if (!nearest.length) {
       document.getElementById('najblizsiTable').innerHTML = '<p class="empty">Žiadne nadchádzajúce rezervácie.</p>';
@@ -313,58 +549,47 @@ async function loadDashboard() {
         <tr><th>Hosť</th><th>Príchod</th><th>Odchod</th><th>Osôb</th><th>Status</th><th>Cena</th></tr>
         ${nearest.map(r=>`<tr>
           <td><strong>${r.host_meno}</strong><br><small style="color:var(--muted)">${r.host_email}</small></td>
-          <td>${r.datum_od?.slice(0,10)}</td>
-          <td>${r.datum_do?.slice(0,10)}</td>
-          <td>${r.pocet_osob}</td>
-          <td>${statusBadge(r.status)}</td>
+          <td>${r.datum_od?.slice(0,10)}</td><td>${r.datum_do?.slice(0,10)}</td>
+          <td>${r.pocet_osob}</td><td>${statusBadge(r.status)}</td>
           <td>€${r.cena_celkom||'–'}</td>
         </tr>`).join('')}
       </table>`;
   } catch(e) { console.error(e); }
 }
 
+// ── REZERVÁCIE ───────────────────────────────────────────────
 async function loadRezervacieList() {
   try {
-    const d = await fetch('/api/admin/rezervacie').then(r=>r.json());
+    const d = await adminFetch('/api/admin/rezervacie');
+    if (!d) return;
     const items = d.rezervacie||[];
-
-    // Badge
     const cakajuce = items.filter(r=>r.status==='cakajuca').length;
     const badge = document.getElementById('badgeRez');
-    badge.textContent = cakajuce;
-    badge.style.display = cakajuce ? '' : 'none';
+    badge.textContent = cakajuce; badge.style.display = cakajuce ? '' : 'none';
 
     if (!items.length) {
-      document.getElementById('rezervacieTable').innerHTML = '<p class="empty">Žiadne rezervácie.</p>';
-      return;
+      document.getElementById('rezervacieTable').innerHTML = '<p class="empty">Žiadne rezervácie.</p>'; return;
     }
     document.getElementById('rezervacieTable').innerHTML = `
       <table>
         <tr><th>Hosť</th><th>Termín</th><th>Osôb</th><th>Cena / Záloha</th><th>Status</th><th>Akcia</th></tr>
         ${items.map(r=>`<tr>
-          <td>
-            <strong>${r.host_meno}</strong><br>
-            <small style="color:var(--muted)">
-              <a href="mailto:${r.host_email}">${r.host_email}</a>
-              ${r.host_telefon ? ` · ${r.host_telefon}` : ''}
-            </small>
-          </td>
+          <td><strong>${r.host_meno}</strong><br>
+            <small><a href="mailto:${r.host_email}">${r.host_email}</a>
+            ${r.host_telefon?` · ${r.host_telefon}`:''}</small></td>
           <td>${r.datum_od?.slice(0,10)} →<br>${r.datum_do?.slice(0,10)}<br>
             <small style="color:var(--muted)">${r.pocet_noci} nocí</small></td>
           <td>${r.pocet_osob}</td>
-          <td>€${r.cena_celkom||'–'}<br>
-            <small style="color:var(--gold)">záloha €${r.zaloha_suma||'–'}</small></td>
+          <td>€${r.cena_celkom||'–'}<br><small style="color:var(--gold)">záloha €${r.zaloha_suma||'–'}</small></td>
           <td>${statusBadge(r.status)}</td>
-          <td>
-            <select class="status-select" onchange="zmenStatus('${r.id}',this.value)">
-              <option value="">Zmeniť...</option>
-              <option value="cakajuca">⏳ Čaká</option>
-              <option value="potvrdena">✅ Potvrdiť</option>
-              <option value="zaplatena">💰 Zaplatená</option>
-              <option value="zrusena">❌ Zrušiť</option>
-              <option value="dokoncena">🏁 Dokončená</option>
-            </select>
-          </td>
+          <td><select class="status-select" onchange="zmenStatus('${r.id}',this.value)">
+            <option value="">Zmeniť...</option>
+            <option value="cakajuca">⏳ Čaká</option>
+            <option value="potvrdena">✅ Potvrdiť</option>
+            <option value="zaplatena">💰 Zaplatená</option>
+            <option value="zrusena">❌ Zrušiť</option>
+            <option value="dokoncena">🏁 Dokončená</option>
+          </select></td>
         </tr>`).join('')}
       </table>`;
   } catch(e) { console.error(e); }
@@ -372,106 +597,91 @@ async function loadRezervacieList() {
 
 async function zmenStatus(id, status) {
   if (!status) return;
-  try {
-    const r = await fetch(`/api/admin/rezervacie/${id}`, {
-      method:'PATCH', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ status })
-    });
-    const d = await r.json();
-    if (d.uspech) { showToast('✅ Status zmenený'); loadRezervacieList(); }
-    else showToast('❌ ' + d.chyba, false);
-  } catch(e) { showToast('❌ Chyba siete', false); }
+  const d = await adminFetch(`/api/admin/rezervacie/${id}`, {
+    method:'PATCH', body: JSON.stringify({ status })
+  });
+  if (d?.uspech) { showToast('✅ Status zmenený'); loadRezervacieList(); }
+  else showToast('❌ ' + (d?.chyba||'Chyba'), false);
 }
 
+// ── RECENZIE ─────────────────────────────────────────────────
 async function loadRecenzie() {
-  try {
-    const d = await fetch('/api/admin/recenzie-cakajuce').then(r=>r.json());
-    const items = d.recenzie||[];
-    const badge = document.getElementById('badgeRec');
-    badge.textContent = items.length;
-    badge.style.display = items.length ? '' : 'none';
+  const d = await adminFetch('/api/admin/recenzie-cakajuce');
+  if (!d) return;
+  const items = d.recenzie||[];
+  const badge = document.getElementById('badgeRec');
+  badge.textContent = items.length; badge.style.display = items.length ? '' : 'none';
 
-    if (!items.length) {
-      document.getElementById('recenzieCard').innerHTML = '<p class="empty">✅ Žiadne recenzie nečakajú na schválenie.</p>';
-      return;
-    }
-    document.getElementById('recenzieCard').innerHTML = items.map(r=>`
-      <div style="border-bottom:1px solid #f0f0f0;padding:16px 0">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong>${r.meno||'Anonymný'}</strong>
-            <span style="color:var(--gold);margin-left:8px">${'★'.repeat(r.hodnotenie)}${'☆'.repeat(5-r.hodnotenie)}</span>
-            <span style="color:var(--muted);font-size:0.8rem;margin-left:8px">${r.obdobie_pobytu||''}</span>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-green btn-sm" onclick="schvalRecenziu(${r.id},true)">✅ Schváliť</button>
-            <button class="btn btn-red btn-sm" onclick="schvalRecenziu(${r.id},false)">🗑 Zamietnuť</button>
-          </div>
+  if (!items.length) {
+    document.getElementById('recenzieCard').innerHTML = '<p class="empty">✅ Žiadne recenzie nečakajú na schválenie.</p>'; return;
+  }
+  document.getElementById('recenzieCard').innerHTML = items.map(r=>`
+    <div style="border-bottom:1px solid #f0f0f0;padding:16px 0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <strong>${r.meno||'Anonymný'}</strong>
+          <span style="color:var(--gold);margin-left:8px">${'★'.repeat(r.hodnotenie)}${'☆'.repeat(5-r.hodnotenie)}</span>
+          <span style="color:var(--muted);font-size:0.8rem;margin-left:8px">${r.obdobie_pobytu||''}</span>
         </div>
-        <p style="margin-top:8px;color:var(--text);font-style:italic">"${r.text}"</p>
-      </div>`).join('');
-  } catch(e) { console.error(e); }
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green btn-sm" onclick="schvalRecenziu(${r.id},true)">✅ Schváliť</button>
+          <button class="btn btn-red btn-sm" onclick="schvalRecenziu(${r.id},false)">🗑 Zamietnuť</button>
+        </div>
+      </div>
+      <p style="margin-top:8px;color:var(--text);font-style:italic">"${r.text}"</p>
+    </div>`).join('');
 }
 
 async function schvalRecenziu(id, schvalena) {
-  try {
-    const r = await fetch(`/api/admin/recenzie/${id}`, {
-      method:'PATCH', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ schvalena })
-    });
-    const d = await r.json();
-    if (d.uspech) { showToast(schvalena ? '✅ Recenzia schválená' : '🗑 Recenzia zamietnutá'); loadRecenzie(); }
-  } catch(e) { showToast('❌ Chyba', false); }
+  const d = await adminFetch(`/api/admin/recenzie/${id}`, {
+    method:'PATCH', body: JSON.stringify({ schvalena })
+  });
+  if (d?.uspech) { showToast(schvalena ? '✅ Schválená' : '🗑 Zamietnutá'); loadRecenzie(); }
 }
 
+// ── SPRÁVY ───────────────────────────────────────────────────
 async function loadSpravy() {
-  try {
-    const d = await fetch('/api/admin/spravy').then(r=>r.json());
-    const items = d.spravy||[];
-    const nove = items.filter(s=>s.status==='nova').length;
-    const badge = document.getElementById('badgeSpr');
-    badge.textContent = nove;
-    badge.style.display = nove ? '' : 'none';
+  const d = await adminFetch('/api/admin/spravy');
+  if (!d) return;
+  const items = d.spravy||[];
+  const nove = items.filter(s=>s.status==='nova').length;
+  const badge = document.getElementById('badgeSpr');
+  badge.textContent = nove; badge.style.display = nove ? '' : 'none';
 
-    if (!items.length) {
-      document.getElementById('spravyTable').innerHTML = '<p class="empty">Žiadne správy.</p>';
-      return;
-    }
-    document.getElementById('spravyTable').innerHTML = `
-      <table>
-        <tr><th>Od</th><th>Predmet</th><th>Správa</th><th>Dátum</th><th>Odpovedať</th></tr>
-        ${items.map(s=>`<tr>
-          <td><strong>${s.meno}</strong><br>
-            <small><a href="mailto:${s.email}">${s.email}</a></small><br>
-            <small style="color:var(--muted)">${s.telefon||''}</small></td>
-          <td>${s.predmet||'–'}</td>
-          <td style="max-width:300px;font-size:0.82rem">${s.text?.slice(0,120)}${s.text?.length>120?'...':''}</td>
-          <td style="white-space:nowrap">${s.vytvorena?.slice(0,10)}</td>
-          <td><a class="btn btn-ghost btn-sm" href="mailto:${s.email}?subject=Re: ${encodeURIComponent(s.predmet||'Vaša správa')}">↩ Reply</a></td>
-        </tr>`).join('')}
-      </table>`;
-  } catch(e) { console.error(e); }
+  if (!items.length) {
+    document.getElementById('spravyTable').innerHTML = '<p class="empty">Žiadne správy.</p>'; return;
+  }
+  document.getElementById('spravyTable').innerHTML = `
+    <table>
+      <tr><th>Od</th><th>Predmet</th><th>Správa</th><th>Dátum</th><th></th></tr>
+      ${items.map(s=>`<tr>
+        <td><strong>${s.meno}</strong><br>
+          <small><a href="mailto:${s.email}">${s.email}</a></small><br>
+          <small style="color:var(--muted)">${s.telefon||''}</small></td>
+        <td>${s.predmet||'–'}</td>
+        <td style="max-width:280px;font-size:0.82rem">${s.text?.slice(0,120)}${s.text?.length>120?'...':''}</td>
+        <td style="white-space:nowrap">${s.vytvorena?.slice(0,10)}</td>
+        <td><a class="btn btn-ghost btn-sm" href="mailto:${s.email}?subject=Re: ${encodeURIComponent(s.predmet||'Vaša správa')}">↩ Reply</a></td>
+      </tr>`).join('')}
+    </table>`;
 }
 
+// ── BLOKOVANIE ───────────────────────────────────────────────
 async function loadBloky() {
-  try {
-    const d = await fetch('/api/admin/bloky').then(r=>r.json());
-    const items = d.bloky||[];
-    if (!items.length) {
-      document.getElementById('blokyTable').innerHTML = '<p class="empty">Žiadne bloky.</p>';
-      return;
-    }
-    document.getElementById('blokyTable').innerHTML = `
-      <table>
-        <tr><th>Od</th><th>Do</th><th>Dôvod</th><th></th></tr>
-        ${items.map(b=>`<tr>
-          <td>${b.datum_od}</td>
-          <td>${b.datum_do}</td>
-          <td>${b.dovod||'–'}</td>
-          <td><button class="btn btn-red btn-sm" onclick="zmazBlok(${b.id})">🗑</button></td>
-        </tr>`).join('')}
-      </table>`;
-  } catch(e) { console.error(e); }
+  const d = await adminFetch('/api/admin/bloky');
+  if (!d) return;
+  const items = d.bloky||[];
+  if (!items.length) {
+    document.getElementById('blokyTable').innerHTML = '<p class="empty">Žiadne bloky.</p>'; return;
+  }
+  document.getElementById('blokyTable').innerHTML = `
+    <table>
+      <tr><th>Od</th><th>Do</th><th>Dôvod</th><th></th></tr>
+      ${items.map(b=>`<tr>
+        <td>${b.datum_od}</td><td>${b.datum_do}</td><td>${b.dovod||'–'}</td>
+        <td><button class="btn btn-red btn-sm" onclick="zmazBlok(${b.id})">🗑</button></td>
+      </tr>`).join('')}
+    </table>`;
 }
 
 async function pridajBlok() {
@@ -479,30 +689,24 @@ async function pridajBlok() {
   const _do   = document.getElementById('blokDo').value;
   const dovod = document.getElementById('blokDovod').value;
   if (!od || !_do) return showToast('❌ Zadaj oba dátumy', false);
-  if (_do < od) return showToast('❌ Odchod musí byť po príchode', false);
-  try {
-    const r = await fetch('/api/admin/blokovat', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ datum_od:od, datum_do:_do, dovod })
-    });
-    const d = await r.json();
-    if (d.uspech) {
-      showToast('✅ Termín zablokovaný');
-      document.getElementById('blokOd').value = '';
-      document.getElementById('blokDo').value = '';
-      document.getElementById('blokDovod').value = '';
-      loadBloky();
-    } else showToast('❌ ' + d.chyba, false);
-  } catch(e) { showToast('❌ Chyba siete', false); }
+  if (_do < od)   return showToast('❌ Odchod musí byť po príchode', false);
+  const d = await adminFetch('/api/admin/blokovat', {
+    method:'POST', body: JSON.stringify({ datum_od:od, datum_do:_do, dovod })
+  });
+  if (d?.uspech) {
+    showToast('✅ Termín zablokovaný');
+    document.getElementById('blokOd').value = '';
+    document.getElementById('blokDo').value = '';
+    document.getElementById('blokDovod').value = '';
+    loadBloky();
+  } else showToast('❌ ' + (d?.chyba||'Chyba'), false);
 }
 
 async function zmazBlok(id) {
   if (!confirm('Naozaj zmazať tento blok?')) return;
-  try {
-    await fetch(`/api/admin/bloky/${id}`, { method:'DELETE' });
-    showToast('✅ Blok zmazaný');
-    loadBloky();
-  } catch(e) { showToast('❌ Chyba', false); }
+  await adminFetch(`/api/admin/bloky/${id}`, { method:'DELETE' });
+  showToast('✅ Blok zmazaný');
+  loadBloky();
 }
 
 function loadPage(name) {
@@ -513,25 +717,39 @@ function loadPage(name) {
   if (name === 'blokovat')   loadBloky();
 }
 
-// Načítaj badges pri štarte
 async function loadBadges() {
   try {
     const [rez, rec, spr] = await Promise.all([
-      fetch('/api/admin/rezervacie').then(r=>r.json()),
-      fetch('/api/admin/recenzie-cakajuce').then(r=>r.json()),
-      fetch('/api/admin/spravy').then(r=>r.json())
+      adminFetch('/api/admin/rezervacie'),
+      adminFetch('/api/admin/recenzie-cakajuce'),
+      adminFetch('/api/admin/spravy')
     ]);
-    const cakajuce = (rez.rezervacie||[]).filter(r=>r.status==='cakajuca').length;
+    const cakajuce = (rez?.rezervacie||[]).filter(r=>r.status==='cakajuca').length;
     if (cakajuce) { document.getElementById('badgeRez').textContent=cakajuce; document.getElementById('badgeRez').style.display=''; }
-    if (rec.recenzie?.length) { document.getElementById('badgeRec').textContent=rec.recenzie.length; document.getElementById('badgeRec').style.display=''; }
-    const nove = (spr.spravy||[]).filter(s=>s.status==='nova').length;
+    if (rec?.recenzie?.length) { document.getElementById('badgeRec').textContent=rec.recenzie.length; document.getElementById('badgeRec').style.display=''; }
+    const nove = (spr?.spravy||[]).filter(s=>s.status==='nova').length;
     if (nove) { document.getElementById('badgeSpr').textContent=nove; document.getElementById('badgeSpr').style.display=''; }
   } catch(e) {}
 }
 
+// ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadDashboard();
-  loadBadges();
+  if (adminToken) {
+    // Overíme či je token stále platný
+    fetch('/api/admin/statistiky', { headers: authHeaders() })
+      .then(r => {
+        if (r.status === 401) {
+          localStorage.removeItem('adminToken');
+          adminToken = null;
+        } else {
+          // Token platný - zistime meno
+          fetch('/api/admin/rezervacie', { headers: authHeaders() })
+            .then(() => showApp('Admin'))
+            .catch(() => showApp('Admin'));
+        }
+      })
+      .catch(() => {}); // server offline - zostaň na login
+  }
 });
 </script>
 </body>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin – Chata Lechnica</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #1a3a1c; --green-mid: #2d5e30; --green-light: #4a8c4e;
+      --gold: #c9a84c; --cream: #f5f0e8; --text: #1e2820; --muted: #5a6b5c;
+      --white: #fff; --red: #c0392b; --orange: #e67e22; --blue: #2980b9;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'DM Sans',sans-serif; background:#f0f2f0; color:var(--text); }
+
+    /* SIDEBAR */
+    .sidebar {
+      position:fixed; left:0; top:0; bottom:0; width:220px;
+      background:var(--green); padding:0; z-index:100;
+      display:flex; flex-direction:column;
+    }
+    .sidebar-logo {
+      padding:24px 20px; border-bottom:1px solid rgba(255,255,255,0.1);
+    }
+    .sidebar-logo h1 { font-family:'Playfair Display',serif; color:var(--gold); font-size:1.1rem; }
+    .sidebar-logo p  { color:rgba(255,255,255,0.4); font-size:0.72rem; margin-top:2px; }
+    .nav-item {
+      display:flex; align-items:center; gap:10px;
+      padding:13px 20px; color:rgba(255,255,255,0.65);
+      cursor:pointer; transition:all 0.2s; font-size:0.88rem;
+      border-left:3px solid transparent;
+    }
+    .nav-item:hover  { background:rgba(255,255,255,0.07); color:white; }
+    .nav-item.active { background:rgba(255,255,255,0.1); color:white; border-left-color:var(--gold); }
+    .nav-icon { font-size:1rem; width:20px; text-align:center; }
+    .nav-badge {
+      margin-left:auto; background:var(--red); color:white;
+      border-radius:10px; font-size:0.68rem; padding:1px 7px; font-weight:600;
+    }
+
+    /* MAIN */
+    .main { margin-left:220px; padding:28px; min-height:100vh; }
+    .page { display:none; }
+    .page.active { display:block; }
+    .page-title {
+      font-family:'Playfair Display',serif; font-size:1.8rem;
+      color:var(--green); margin-bottom:24px;
+    }
+
+    /* STAT CARDS */
+    .stats-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:16px; margin-bottom:28px;
+    }
+    .stat-card {
+      background:white; border-radius:12px; padding:20px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.06);
+    }
+    .stat-card .label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; }
+    .stat-card .value { font-size:2rem; font-weight:700; color:var(--green); margin-top:4px; line-height:1; }
+    .stat-card .sub   { font-size:0.78rem; color:var(--muted); margin-top:4px; }
+    .stat-card.gold .value { color:var(--gold); }
+
+    /* TABLE */
+    .card {
+      background:white; border-radius:12px; padding:20px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:20px;
+    }
+    .card h3 { font-size:1rem; font-weight:600; color:var(--green); margin-bottom:16px; }
+    table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    th { text-align:left; padding:8px 10px; color:var(--muted); font-weight:500;
+         font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em;
+         border-bottom:2px solid var(--cream); }
+    td { padding:10px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#fafaf8; }
+
+    /* BADGES */
+    .badge {
+      display:inline-block; padding:3px 10px; border-radius:20px;
+      font-size:0.72rem; font-weight:600; letter-spacing:0.05em;
+    }
+    .badge-cakajuca  { background:#fff3cd; color:#856404; }
+    .badge-potvrdena { background:#d4edda; color:#155724; }
+    .badge-zaplatena { background:#cce5ff; color:#004085; }
+    .badge-zrusena   { background:#f8d7da; color:#721c24; }
+    .badge-dokoncena { background:#e2e3e5; color:#383d41; }
+
+    /* BUTTONS */
+    .btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:7px 14px; border-radius:6px; border:none;
+      font-size:0.82rem; font-weight:600; cursor:pointer;
+      font-family:'DM Sans',sans-serif; transition:all 0.2s;
+    }
+    .btn-green  { background:var(--green-mid); color:white; }
+    .btn-green:hover { background:var(--green); }
+    .btn-gold   { background:var(--gold); color:var(--green); }
+    .btn-red    { background:var(--red); color:white; }
+    .btn-red:hover { background:#a93226; }
+    .btn-ghost  { background:transparent; color:var(--muted); border:1px solid #ddd; }
+    .btn-ghost:hover { background:#f5f5f5; }
+    .btn-sm { padding:4px 10px; font-size:0.75rem; }
+
+    /* FORM */
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    .form-group label { display:block; font-size:0.75rem; font-weight:600; color:var(--muted);
+      text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width:100%; padding:9px 12px; border:1.5px solid #e0e0e0; border-radius:7px;
+      font-family:'DM Sans',sans-serif; font-size:0.9rem; outline:none;
+      transition:border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color:var(--green-light); }
+
+    /* OBSADENOSŤ BAR */
+    .obsadenost-bar { background:#e8e8e8; border-radius:10px; height:10px; overflow:hidden; margin-top:6px; }
+    .obsadenost-fill { height:100%; background:var(--green-mid); border-radius:10px; transition:width 0.8s; }
+
+    /* SELECT STATUS */
+    .status-select {
+      padding:4px 8px; border:1px solid #ddd; border-radius:5px;
+      font-family:'DM Sans',sans-serif; font-size:0.78rem; cursor:pointer;
+      background:white;
+    }
+
+    /* EMPTY STATE */
+    .empty { text-align:center; padding:40px; color:var(--muted); font-size:0.9rem; }
+
+    /* TOAST */
+    .toast {
+      position:fixed; bottom:24px; right:24px; background:var(--green);
+      color:white; padding:12px 20px; border-radius:8px; font-size:0.88rem;
+      border-left:4px solid var(--gold); z-index:9999;
+      transform:translateY(80px); opacity:0; transition:all 0.3s;
+      pointer-events:none;
+    }
+    .toast.show { transform:translateY(0); opacity:1; }
+
+    @media (max-width:768px) {
+      .sidebar { width:100%; height:60px; flex-direction:row; align-items:center;
+        padding:0 16px; overflow-x:auto; }
+      .sidebar-logo { display:none; }
+      .main { margin-left:0; margin-top:60px; padding:16px; }
+      .form-row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h1>Chata Lechnica</h1>
+    <p>Admin Panel</p>
+  </div>
+  <div class="nav-item active" onclick="showPage('dashboard')">
+    <span class="nav-icon">📊</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="showPage('rezervacie')">
+    <span class="nav-icon">📅</span> Rezervácie
+    <span class="nav-badge" id="badgeRez" style="display:none">0</span>
+  </div>
+  <div class="nav-item" onclick="showPage('recenzie')">
+    <span class="nav-icon">⭐</span> Recenzie
+    <span class="nav-badge" id="badgeRec" style="display:none">0</span>
+  </div>
+  <div class="nav-item" onclick="showPage('spravy')">
+    <span class="nav-icon">✉️</span> Správy
+    <span class="nav-badge" id="badgeSpr" style="display:none">0</span>
+  </div>
+  <div class="nav-item" onclick="showPage('blokovat')">
+    <span class="nav-icon">🚫</span> Blokovať termíny
+  </div>
+  <div class="nav-item" onclick="window.open('/','_blank')" style="margin-top:auto;border-top:1px solid rgba(255,255,255,0.1)">
+    <span class="nav-icon">🌐</span> Otvoriť web
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <h2 class="page-title">📊 Prehľad</h2>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><p class="label">Načítavam...</p></div>
+    </div>
+    <div class="card">
+      <h3>Obsadenosť – nasledujúce 90 dní</h3>
+      <div id="obsadenostInfo" style="color:var(--muted);font-size:0.88rem"></div>
+      <div class="obsadenost-bar"><div class="obsadenost-fill" id="obsadenostFill" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <h3>Najbližšie rezervácie</h3>
+      <div id="najblizsiTable"><p class="empty">Načítavam...</p></div>
+    </div>
+  </div>
+
+  <!-- REZERVÁCIE -->
+  <div class="page" id="page-rezervacie">
+    <h2 class="page-title">📅 Rezervácie</h2>
+    <div class="card">
+      <div id="rezervacieTable"><p class="empty">Načítavam...</p></div>
+    </div>
+  </div>
+
+  <!-- RECENZIE -->
+  <div class="page" id="page-recenzie">
+    <h2 class="page-title">⭐ Recenzie – čakajú na schválenie</h2>
+    <div class="card" id="recenzieCard">
+      <p class="empty">Načítavam...</p>
+    </div>
+  </div>
+
+  <!-- SPRÁVY -->
+  <div class="page" id="page-spravy">
+    <h2 class="page-title">✉️ Správy z webu</h2>
+    <div class="card">
+      <div id="spravyTable"><p class="empty">Načítavam...</p></div>
+    </div>
+  </div>
+
+  <!-- BLOKOVAŤ -->
+  <div class="page" id="page-blokovat">
+    <h2 class="page-title">🚫 Blokovať termíny</h2>
+    <div class="card" style="max-width:500px">
+      <h3>Pridať blokovaný termín</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Od</label>
+          <input type="date" id="blokOd">
+        </div>
+        <div class="form-group">
+          <label>Do</label>
+          <input type="date" id="blokDo">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Dôvod (nepovinné)</label>
+        <input type="text" id="blokDovod" placeholder="napr. Oprava strechy, Súkromná akcia...">
+      </div>
+      <button class="btn btn-green" onclick="pridajBlok()">🚫 Zablokovať termín</button>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h3>Aktuálne bloky</h3>
+      <div id="blokyTable"><p class="empty">Načítavam...</p></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderLeftColor = ok ? '#c9a84c' : '#c0392b';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  loadPage(name);
+}
+
+function statusBadge(s) {
+  const labels = { cakajuca:'⏳ Čaká', potvrdena:'✅ Potvrdená', zaplatena:'💰 Zaplatená',
+    zrusena:'❌ Zrušená', dokoncena:'🏁 Dokončená' };
+  return `<span class="badge badge-${s}">${labels[s]||s}</span>`;
+}
+
+async function loadDashboard() {
+  try {
+    const [stat, rez] = await Promise.all([
+      fetch('/api/admin/statistiky').then(r=>r.json()),
+      fetch('/api/admin/rezervacie').then(r=>r.json())
+    ]);
+
+    // Stats cards
+    const pct = stat.celkom_dni > 0
+      ? Math.round((stat.obsadene_dni / stat.celkom_dni) * 100) : 0;
+
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card"><p class="label">Celkom rezervácií</p>
+        <p class="value">${stat.celkom_rezervacii||0}</p></div>
+      <div class="stat-card"><p class="label">Čakajúce</p>
+        <p class="value" style="color:#e67e22">${stat.cakajuce||0}</p></div>
+      <div class="stat-card"><p class="label">Potvrdené</p>
+        <p class="value" style="color:#27ae60">${stat.potvrdene||0}</p></div>
+      <div class="stat-card gold"><p class="label">Tržby (€)</p>
+        <p class="value">€${stat.trzby_celkom ? Number(stat.trzby_celkom).toFixed(0) : 0}</p></div>
+      <div class="stat-card"><p class="label">Priem. hodnotenie</p>
+        <p class="value">${stat.priemer_hodnotenie||'–'} ⭐</p></div>
+      <div class="stat-card"><p class="label">Obsadenosť 90d</p>
+        <p class="value">${pct}%</p>
+        <div class="obsadenost-bar"><div class="obsadenost-fill" style="width:${pct}%"></div></div></div>`;
+
+    // Najbližšie rezervácie
+    const nearest = (rez.rezervacie||[]).slice(0, 5);
+    if (!nearest.length) {
+      document.getElementById('najblizsiTable').innerHTML = '<p class="empty">Žiadne nadchádzajúce rezervácie.</p>';
+      return;
+    }
+    document.getElementById('najblizsiTable').innerHTML = `
+      <table>
+        <tr><th>Hosť</th><th>Príchod</th><th>Odchod</th><th>Osôb</th><th>Status</th><th>Cena</th></tr>
+        ${nearest.map(r=>`<tr>
+          <td><strong>${r.host_meno}</strong><br><small style="color:var(--muted)">${r.host_email}</small></td>
+          <td>${r.datum_od?.slice(0,10)}</td>
+          <td>${r.datum_do?.slice(0,10)}</td>
+          <td>${r.pocet_osob}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td>€${r.cena_celkom||'–'}</td>
+        </tr>`).join('')}
+      </table>`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadRezervacieList() {
+  try {
+    const d = await fetch('/api/admin/rezervacie').then(r=>r.json());
+    const items = d.rezervacie||[];
+
+    // Badge
+    const cakajuce = items.filter(r=>r.status==='cakajuca').length;
+    const badge = document.getElementById('badgeRez');
+    badge.textContent = cakajuce;
+    badge.style.display = cakajuce ? '' : 'none';
+
+    if (!items.length) {
+      document.getElementById('rezervacieTable').innerHTML = '<p class="empty">Žiadne rezervácie.</p>';
+      return;
+    }
+    document.getElementById('rezervacieTable').innerHTML = `
+      <table>
+        <tr><th>Hosť</th><th>Termín</th><th>Osôb</th><th>Cena / Záloha</th><th>Status</th><th>Akcia</th></tr>
+        ${items.map(r=>`<tr>
+          <td>
+            <strong>${r.host_meno}</strong><br>
+            <small style="color:var(--muted)">
+              <a href="mailto:${r.host_email}">${r.host_email}</a>
+              ${r.host_telefon ? ` · ${r.host_telefon}` : ''}
+            </small>
+          </td>
+          <td>${r.datum_od?.slice(0,10)} →<br>${r.datum_do?.slice(0,10)}<br>
+            <small style="color:var(--muted)">${r.pocet_noci} nocí</small></td>
+          <td>${r.pocet_osob}</td>
+          <td>€${r.cena_celkom||'–'}<br>
+            <small style="color:var(--gold)">záloha €${r.zaloha_suma||'–'}</small></td>
+          <td>${statusBadge(r.status)}</td>
+          <td>
+            <select class="status-select" onchange="zmenStatus('${r.id}',this.value)">
+              <option value="">Zmeniť...</option>
+              <option value="cakajuca">⏳ Čaká</option>
+              <option value="potvrdena">✅ Potvrdiť</option>
+              <option value="zaplatena">💰 Zaplatená</option>
+              <option value="zrusena">❌ Zrušiť</option>
+              <option value="dokoncena">🏁 Dokončená</option>
+            </select>
+          </td>
+        </tr>`).join('')}
+      </table>`;
+  } catch(e) { console.error(e); }
+}
+
+async function zmenStatus(id, status) {
+  if (!status) return;
+  try {
+    const r = await fetch(`/api/admin/rezervacie/${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ status })
+    });
+    const d = await r.json();
+    if (d.uspech) { showToast('✅ Status zmenený'); loadRezervacieList(); }
+    else showToast('❌ ' + d.chyba, false);
+  } catch(e) { showToast('❌ Chyba siete', false); }
+}
+
+async function loadRecenzie() {
+  try {
+    const d = await fetch('/api/admin/recenzie-cakajuce').then(r=>r.json());
+    const items = d.recenzie||[];
+    const badge = document.getElementById('badgeRec');
+    badge.textContent = items.length;
+    badge.style.display = items.length ? '' : 'none';
+
+    if (!items.length) {
+      document.getElementById('recenzieCard').innerHTML = '<p class="empty">✅ Žiadne recenzie nečakajú na schválenie.</p>';
+      return;
+    }
+    document.getElementById('recenzieCard').innerHTML = items.map(r=>`
+      <div style="border-bottom:1px solid #f0f0f0;padding:16px 0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <strong>${r.meno||'Anonymný'}</strong>
+            <span style="color:var(--gold);margin-left:8px">${'★'.repeat(r.hodnotenie)}${'☆'.repeat(5-r.hodnotenie)}</span>
+            <span style="color:var(--muted);font-size:0.8rem;margin-left:8px">${r.obdobie_pobytu||''}</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-green btn-sm" onclick="schvalRecenziu(${r.id},true)">✅ Schváliť</button>
+            <button class="btn btn-red btn-sm" onclick="schvalRecenziu(${r.id},false)">🗑 Zamietnuť</button>
+          </div>
+        </div>
+        <p style="margin-top:8px;color:var(--text);font-style:italic">"${r.text}"</p>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function schvalRecenziu(id, schvalena) {
+  try {
+    const r = await fetch(`/api/admin/recenzie/${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ schvalena })
+    });
+    const d = await r.json();
+    if (d.uspech) { showToast(schvalena ? '✅ Recenzia schválená' : '🗑 Recenzia zamietnutá'); loadRecenzie(); }
+  } catch(e) { showToast('❌ Chyba', false); }
+}
+
+async function loadSpravy() {
+  try {
+    const d = await fetch('/api/admin/spravy').then(r=>r.json());
+    const items = d.spravy||[];
+    const nove = items.filter(s=>s.status==='nova').length;
+    const badge = document.getElementById('badgeSpr');
+    badge.textContent = nove;
+    badge.style.display = nove ? '' : 'none';
+
+    if (!items.length) {
+      document.getElementById('spravyTable').innerHTML = '<p class="empty">Žiadne správy.</p>';
+      return;
+    }
+    document.getElementById('spravyTable').innerHTML = `
+      <table>
+        <tr><th>Od</th><th>Predmet</th><th>Správa</th><th>Dátum</th><th>Odpovedať</th></tr>
+        ${items.map(s=>`<tr>
+          <td><strong>${s.meno}</strong><br>
+            <small><a href="mailto:${s.email}">${s.email}</a></small><br>
+            <small style="color:var(--muted)">${s.telefon||''}</small></td>
+          <td>${s.predmet||'–'}</td>
+          <td style="max-width:300px;font-size:0.82rem">${s.text?.slice(0,120)}${s.text?.length>120?'...':''}</td>
+          <td style="white-space:nowrap">${s.vytvorena?.slice(0,10)}</td>
+          <td><a class="btn btn-ghost btn-sm" href="mailto:${s.email}?subject=Re: ${encodeURIComponent(s.predmet||'Vaša správa')}">↩ Reply</a></td>
+        </tr>`).join('')}
+      </table>`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadBloky() {
+  try {
+    const d = await fetch('/api/admin/bloky').then(r=>r.json());
+    const items = d.bloky||[];
+    if (!items.length) {
+      document.getElementById('blokyTable').innerHTML = '<p class="empty">Žiadne bloky.</p>';
+      return;
+    }
+    document.getElementById('blokyTable').innerHTML = `
+      <table>
+        <tr><th>Od</th><th>Do</th><th>Dôvod</th><th></th></tr>
+        ${items.map(b=>`<tr>
+          <td>${b.datum_od}</td>
+          <td>${b.datum_do}</td>
+          <td>${b.dovod||'–'}</td>
+          <td><button class="btn btn-red btn-sm" onclick="zmazBlok(${b.id})">🗑</button></td>
+        </tr>`).join('')}
+      </table>`;
+  } catch(e) { console.error(e); }
+}
+
+async function pridajBlok() {
+  const od    = document.getElementById('blokOd').value;
+  const _do   = document.getElementById('blokDo').value;
+  const dovod = document.getElementById('blokDovod').value;
+  if (!od || !_do) return showToast('❌ Zadaj oba dátumy', false);
+  if (_do < od) return showToast('❌ Odchod musí byť po príchode', false);
+  try {
+    const r = await fetch('/api/admin/blokovat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ datum_od:od, datum_do:_do, dovod })
+    });
+    const d = await r.json();
+    if (d.uspech) {
+      showToast('✅ Termín zablokovaný');
+      document.getElementById('blokOd').value = '';
+      document.getElementById('blokDo').value = '';
+      document.getElementById('blokDovod').value = '';
+      loadBloky();
+    } else showToast('❌ ' + d.chyba, false);
+  } catch(e) { showToast('❌ Chyba siete', false); }
+}
+
+async function zmazBlok(id) {
+  if (!confirm('Naozaj zmazať tento blok?')) return;
+  try {
+    await fetch(`/api/admin/bloky/${id}`, { method:'DELETE' });
+    showToast('✅ Blok zmazaný');
+    loadBloky();
+  } catch(e) { showToast('❌ Chyba', false); }
+}
+
+function loadPage(name) {
+  if (name === 'dashboard')  loadDashboard();
+  if (name === 'rezervacie') loadRezervacieList();
+  if (name === 'recenzie')   loadRecenzie();
+  if (name === 'spravy')     loadSpravy();
+  if (name === 'blokovat')   loadBloky();
+}
+
+// Načítaj badges pri štarte
+async function loadBadges() {
+  try {
+    const [rez, rec, spr] = await Promise.all([
+      fetch('/api/admin/rezervacie').then(r=>r.json()),
+      fetch('/api/admin/recenzie-cakajuce').then(r=>r.json()),
+      fetch('/api/admin/spravy').then(r=>r.json())
+    ]);
+    const cakajuce = (rez.rezervacie||[]).filter(r=>r.status==='cakajuca').length;
+    if (cakajuce) { document.getElementById('badgeRez').textContent=cakajuce; document.getElementById('badgeRez').style.display=''; }
+    if (rec.recenzie?.length) { document.getElementById('badgeRec').textContent=rec.recenzie.length; document.getElementById('badgeRec').style.display=''; }
+    const nove = (spr.spravy||[]).filter(s=>s.status==='nova').length;
+    if (nove) { document.getElementById('badgeSpr').textContent=nove; document.getElementById('badgeSpr').style.display=''; }
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+  loadBadges();
+});
+</script>
+</body>
+</html>
